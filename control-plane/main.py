@@ -12,7 +12,8 @@ snapshot_store = modal.Dict.from_name("lmnr-snapshots", create_if_missing=True)
 LMNR_REPO = "https://github.com/lmnr-ai/lmnr.git"
 LMNR_BRANCH = "dev"
 AGENT_REPO = "https://github.com/lmnr-ai/lmnr-background-agent.git"
-NEXTJS_PORT = 3000
+AGENT_BRANCH = "dev"
+NEXTJS_PORT = 3005
 
 SANDBOX_CPU = 4.0
 SANDBOX_MEMORY = 16384  # 16 GB – Rust builds are memory-hungry
@@ -122,21 +123,24 @@ def rebuild_snapshot():
         run_cmd(sb, "cd /lmnr/frontend && pnpm install && pnpm build")
 
         # 4. Clone and pre-build the background-agent app
-        run_cmd(sb, f"git clone {AGENT_REPO} /lmnr-background-agent")
+        run_cmd(sb, f"git clone --branch {AGENT_BRANCH} --depth 1 {AGENT_REPO} /lmnr-background-agent")
         run_cmd(sb, "cd /lmnr-background-agent/app && pnpm install", timeout=120)
         run_cmd(sb, "cd /lmnr-background-agent/app && pnpm build", timeout=120)
 
-        # 5. Capture the current commit hash
+        # 5. Capture the current commit hashes
         commit_hash = run_cmd(sb, "cd /lmnr && git rev-parse HEAD").strip()
-        print(f"  commit: {commit_hash}")
+        agent_commit_hash = run_cmd(sb, "cd /lmnr-background-agent && git rev-parse HEAD").strip()
+        print(f"  lmnr commit: {commit_hash}")
+        print(f"  agent commit: {agent_commit_hash}")
 
         # 6. Snapshot the filesystem
         print("Taking filesystem snapshot …")
         snapshot_image = sb.snapshot_filesystem()
 
-        # 7. Persist snapshot id and commit hash
+        # 7. Persist snapshot id and commit hashes
         snapshot_store["latest_snapshot_id"] = snapshot_image.object_id
         snapshot_store["latest_lmnr_commit"] = commit_hash
+        snapshot_store["latest_agent_commit"] = agent_commit_hash
 
         print(f"Snapshot saved: {snapshot_image.object_id}")
     except Exception as exc:
@@ -172,8 +176,6 @@ def create_sandbox():
 
     snapshot_image = modal.Image.from_id(snapshot_id)
 
-    stored_commit: str = snapshot_store.get("latest_lmnr_commit", "")
-
     # 2. Create sandbox from snapshot --------------------------------------------
     sb = modal.Sandbox.create(
         image=snapshot_image,
@@ -188,6 +190,7 @@ def create_sandbox():
 
     try:
         # 3. Pull latest lmnr changes and conditionally rebuild ------------------
+        stored_commit: str = snapshot_store.get("latest_lmnr_commit", "")
         run_cmd(sb, f"cd /lmnr && git fetch origin {LMNR_BRANCH}")
         run_cmd(sb, f"cd /lmnr && git reset --hard origin/{LMNR_BRANCH}")
 
@@ -203,10 +206,22 @@ def create_sandbox():
         else:
             print("lmnr repo unchanged – skipping rebuild")
 
-        # 4. Pull latest agent repo changes and rebuild if needed -----------------
-        run_cmd(sb, "cd /lmnr-background-agent && git pull origin main")
-        run_cmd(sb, "cd /lmnr-background-agent/app && pnpm install", timeout=120)
-        run_cmd(sb, "cd /lmnr-background-agent/app && pnpm build", timeout=120)
+        # 4. Pull latest agent repo changes and conditionally rebuild -------------
+        stored_agent_commit: str = snapshot_store.get("latest_agent_commit", "")
+        run_cmd(sb, f"cd /lmnr-background-agent && git fetch origin {AGENT_BRANCH}")
+        run_cmd(sb, f"cd /lmnr-background-agent && git reset --hard origin/{AGENT_BRANCH}")
+
+        current_agent_commit = run_cmd(sb, "cd /lmnr-background-agent && git rev-parse HEAD").strip()
+
+        if current_agent_commit != stored_agent_commit:
+            print(
+                f"agent repo changed ({stored_agent_commit[:8]}.. -> {current_agent_commit[:8]}..)"
+                " – rebuilding …"
+            )
+            run_cmd(sb, "cd /lmnr-background-agent/app && pnpm install", timeout=120)
+            run_cmd(sb, "cd /lmnr-background-agent/app && pnpm build", timeout=120)
+        else:
+            print("agent repo unchanged – skipping rebuild")
 
         sb.exec(
             "bash",
