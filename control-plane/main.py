@@ -199,8 +199,9 @@ def create_sandbox():
         # 4. Clone the background-agent repo -------------------------------------
         run_cmd(sb, f"git clone {AGENT_REPO} /lmnr-background-agent")
 
-        # 5. Install deps and start the Next.js app (non-blocking) ---------------
+        # 5. Install deps, build, and start the Next.js app (non-blocking) --------
         run_cmd(sb, "cd /lmnr-background-agent/app && pnpm install", timeout=120)
+        run_cmd(sb, "cd /lmnr-background-agent/app && pnpm build", timeout=120)
 
         sb.exec(
             "bash",
