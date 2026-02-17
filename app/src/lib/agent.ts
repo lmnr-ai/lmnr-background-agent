@@ -3,6 +3,7 @@ import "server-only";
 import { query as origQuery, type Options } from "@anthropic-ai/claude-agent-sdk";
 
 import { Laminar } from '@lmnr-ai/lmnr';
+Laminar.initialize();
 const query = Laminar.wrapClaudeAgentQuery(origQuery);
 
 const DEFAULT_OPTIONS: Options = {

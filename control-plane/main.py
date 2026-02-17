@@ -14,6 +14,7 @@ LMNR_BRANCH = "dev"
 AGENT_REPO = "https://github.com/lmnr-ai/lmnr-background-agent.git"
 AGENT_BRANCH = "dev"
 NEXTJS_PORT = 3005
+LMNR_FRONTEND_PORT = 3000
 
 SANDBOX_CPU = 4.0
 SANDBOX_MEMORY = 16384  # 16 GB – Rust builds are memory-hungry
@@ -180,7 +181,7 @@ def create_sandbox():
     sb = modal.Sandbox.create(
         image=snapshot_image,
         app=app,
-        encrypted_ports=[NEXTJS_PORT],
+        encrypted_ports=[NEXTJS_PORT, LMNR_FRONTEND_PORT],
         timeout=3600,
         idle_timeout=3600,
         cpu=SANDBOX_CPU,
@@ -232,7 +233,8 @@ def create_sandbox():
 
         # 5. Wait for the tunnel to become available -----------------------------
         tunnels = sb.tunnels(timeout=120)
-        tunnel = tunnels[NEXTJS_PORT]
+        agent_tunnel = tunnels[NEXTJS_PORT]
+        frontend_tunnel = tunnels[LMNR_FRONTEND_PORT]
 
         # Poll until the Next.js server is healthy
         import urllib.request
@@ -240,17 +242,19 @@ def create_sandbox():
         start = time.time()
         while time.time() - start < 120:
             try:
-                resp = urllib.request.urlopen(tunnel.url, timeout=5)
+                resp = urllib.request.urlopen(agent_tunnel.url, timeout=5)
                 if resp.getcode() == 200:
                     break
             except Exception:
                 time.sleep(2)
 
-        print(f"Sandbox ready: {tunnel.url}")
+        print(f"Sandbox ready: {agent_tunnel.url}")
+        print(f"Frontend tunnel: {frontend_tunnel.url}")
 
         return {
             "sandbox_id": sb.object_id,
-            "url": tunnel.url,
+            "url": agent_tunnel.url,
+            "frontend_url": frontend_tunnel.url,
         }
 
     except Exception as exc:
