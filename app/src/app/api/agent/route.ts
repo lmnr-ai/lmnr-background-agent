@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const agentQuery = runAgent(prompt, cwd);
+  const { query: agentQuery, stderrChunks } = runAgent(prompt, cwd);
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
         }
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
-        const stderr = ((agentQuery as any)._stderrChunks ?? []).join("");
+        const stderr = stderrChunks.join("");
         const fullError = stderr ? `${errorMsg}\n\nstderr:\n${stderr}` : errorMsg;
         controller.enqueue(
           encodeNdjsonLine({ type: "error", error: fullError }),
