@@ -3,15 +3,7 @@ import "server-only";
 import { query as origQuery, type Options } from "@anthropic-ai/claude-agent-sdk";
 
 import { Laminar } from '@lmnr-ai/lmnr';
-
-let initialized = false;
-function getQuery() {
-  if (!initialized) {
-    Laminar.initialize();
-    initialized = true;
-  }
-  return Laminar.wrapClaudeAgentQuery(origQuery);
-}
+const query = Laminar.wrapClaudeAgentQuery(origQuery);
 
 const DEFAULT_OPTIONS: Options = {
   model: "claude-sonnet-4-5",
@@ -46,7 +38,7 @@ export type AgentRun = {
  */
 export function runAgent(prompt: string, cwd?: string): AgentRun {
   const stderrChunks: string[] = [];
-  const query = getQuery()({
+  const q = query({
     prompt,
     options: {
       ...DEFAULT_OPTIONS,
@@ -59,5 +51,5 @@ export function runAgent(prompt: string, cwd?: string): AgentRun {
       },
     },
   });
-  return { query, stderrChunks };
+  return { query: q, stderrChunks };
 }
