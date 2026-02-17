@@ -41,12 +41,21 @@ const DEFAULT_OPTIONS: Options = {
  * @param cwd    Working directory for the agent (defaults to process.cwd())
  */
 export function runAgent(prompt: string, cwd?: string) {
-  return getQuery()({
+  const stderrChunks: string[] = [];
+  const q = getQuery()({
     prompt,
     options: {
       ...DEFAULT_OPTIONS,
       cwd: cwd ?? process.env.AGENT_CWD ?? process.cwd(),
       includePartialMessages: true,
+      debug: true,
+      stderr: (data: string) => {
+        console.error("[agent-sdk]", data);
+        stderrChunks.push(data);
+      },
     },
   });
+  // Expose stderr for error reporting
+  (q as any)._stderrChunks = stderrChunks;
+  return q;
 }

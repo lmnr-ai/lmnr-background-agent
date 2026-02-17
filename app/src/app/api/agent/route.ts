@@ -30,8 +30,10 @@ export async function POST(req: NextRequest) {
         }
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
+        const stderr = ((agentQuery as any)._stderrChunks ?? []).join("");
+        const fullError = stderr ? `${errorMsg}\n\nstderr:\n${stderr}` : errorMsg;
         controller.enqueue(
-          encodeNdjsonLine({ type: "error", error: errorMsg }),
+          encodeNdjsonLine({ type: "error", error: fullError }),
         );
       } finally {
         controller.close();

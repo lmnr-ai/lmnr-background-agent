@@ -36,6 +36,7 @@ base_image = (
         "libfontconfig1-dev",
         "libclang-dev",
         "ca-certificates",
+        "ripgrep",
     )
     # Node.js 24.x + pnpm
     .run_commands(
@@ -120,15 +121,20 @@ def rebuild_snapshot():
         # 3. Build the Next.js project (frontend)
         run_cmd(sb, "cd /lmnr/frontend && pnpm install && pnpm build")
 
-        # 4. Capture the current commit hash
+        # 4. Clone and pre-build the background-agent app
+        run_cmd(sb, f"git clone {AGENT_REPO} /lmnr-background-agent")
+        run_cmd(sb, "cd /lmnr-background-agent/app && pnpm install", timeout=120)
+        run_cmd(sb, "cd /lmnr-background-agent/app && pnpm build", timeout=120)
+
+        # 5. Capture the current commit hash
         commit_hash = run_cmd(sb, "cd /lmnr && git rev-parse HEAD").strip()
         print(f"  commit: {commit_hash}")
 
-        # 5. Snapshot the filesystem
+        # 6. Snapshot the filesystem
         print("Taking filesystem snapshot …")
         snapshot_image = sb.snapshot_filesystem()
 
-        # 6. Persist snapshot id and commit hash
+        # 7. Persist snapshot id and commit hash
         snapshot_store["latest_snapshot_id"] = snapshot_image.object_id
         snapshot_store["latest_lmnr_commit"] = commit_hash
 
@@ -197,10 +203,8 @@ def create_sandbox():
         else:
             print("lmnr repo unchanged – skipping rebuild")
 
-        # 4. Clone the background-agent repo -------------------------------------
-        run_cmd(sb, f"git clone {AGENT_REPO} /lmnr-background-agent")
-
-        # 5. Install deps, build, and start the Next.js app (non-blocking) --------
+        # 4. Pull latest agent repo changes and rebuild if needed -----------------
+        run_cmd(sb, "cd /lmnr-background-agent && git pull origin main")
         run_cmd(sb, "cd /lmnr-background-agent/app && pnpm install", timeout=120)
         run_cmd(sb, "cd /lmnr-background-agent/app && pnpm build", timeout=120)
 
@@ -211,7 +215,7 @@ def create_sandbox():
             timeout=3600,
         )
 
-        # 6. Wait for the tunnel to become available -----------------------------
+        # 5. Wait for the tunnel to become available -----------------------------
         tunnels = sb.tunnels(timeout=120)
         tunnel = tunnels[NEXTJS_PORT]
 
