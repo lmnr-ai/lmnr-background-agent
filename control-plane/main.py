@@ -92,7 +92,7 @@ def run_cmd(sb: modal.Sandbox, cmd: str, timeout: int = 1800) -> str:
 # ---------------------------------------------------------------------------
 
 
-@app.function(timeout=3600, schedule=modal.Cron("40 * * * *"))
+@app.function(timeout=3600, schedule=modal.Cron("0 * * * *"))
 def rebuild_snapshot():
     """Build the lmnr repo (Rust + Next.js) and snapshot the filesystem.
 
