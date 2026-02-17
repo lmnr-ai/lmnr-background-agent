@@ -17,7 +17,6 @@ const DEFAULT_OPTIONS: Options = {
     "MultiEdit",
   ],
   permissionMode: "bypassPermissions",
-  allowDangerouslySkipPermissions: true,
   systemPrompt: {
     type: "preset",
     preset: "claude_code",
