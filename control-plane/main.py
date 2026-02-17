@@ -226,7 +226,7 @@ def create_sandbox():
         sb.exec(
             "bash",
             "-c",
-            "cd /lmnr-background-agent/app && AGENT_CWD=/lmnr pnpm start",
+            f"cd /lmnr-background-agent/app && AGENT_CWD=/lmnr PORT={NEXTJS_PORT} pnpm start",
             timeout=3600,
         )
 
