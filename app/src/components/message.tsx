@@ -23,9 +23,25 @@ export function AssistantMessage({ messages }: { messages: AgentMessage[] }) {
     );
   }
 
-  // Group consecutive text messages and pair tool_call / tool_result
+  // Pre-collect the latest tool input and result for each toolUseId
+  const toolInputMap = new Map<string, string>();
+  const toolResultMap = new Map<string, AgentMessage>();
+  for (const msg of messages) {
+    if (msg.type === "tool_call") {
+      // Later updates (toolName === "") carry accumulated input
+      if (msg.toolName === "") {
+        toolInputMap.set(msg.toolUseId, msg.input);
+      } else {
+        toolInputMap.set(msg.toolUseId, msg.input);
+      }
+    } else if (msg.type === "tool_result") {
+      toolResultMap.set(msg.toolUseId, msg);
+    }
+  }
+
   const elements: React.ReactNode[] = [];
   let textBuffer = "";
+  const seenTools = new Set<string>();
 
   const flushText = () => {
     if (textBuffer) {
@@ -50,15 +66,16 @@ export function AssistantMessage({ messages }: { messages: AgentMessage[] }) {
         break;
 
       case "tool_call": {
+        // Only render on the first occurrence (with toolName)
+        if (msg.toolName === "" || seenTools.has(msg.toolUseId)) break;
+        seenTools.add(msg.toolUseId);
         flushText();
-        // Find matching result
-        const result = messages.find(
-          (m) => m.type === "tool_result" && m.toolUseId === msg.toolUseId,
-        );
+        const latestInput = toolInputMap.get(msg.toolUseId) ?? "";
+        const result = toolResultMap.get(msg.toolUseId);
         elements.push(
           <ToolCall
-            key={`tool-${msg.toolUseId}-${i}`}
-            toolCall={msg}
+            key={`tool-${msg.toolUseId}`}
+            toolCall={{ ...msg, input: latestInput }}
             toolResult={result?.type === "tool_result" ? result : undefined}
           />,
         );
@@ -66,7 +83,6 @@ export function AssistantMessage({ messages }: { messages: AgentMessage[] }) {
       }
 
       case "tool_result":
-        // Already handled above alongside tool_call
         break;
 
       case "error":

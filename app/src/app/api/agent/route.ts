@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runAgent } from "@/lib/agent";
-import { transformSdkMessage, encodeNdjsonLine } from "@/lib/stream";
+import { createMessageTransformer, encodeNdjsonLine } from "@/lib/stream";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // 5 min edge function timeout
@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { query: agentQuery, stderrChunks } = runAgent(prompt, cwd);
+  const transformSdkMessage = createMessageTransformer();
 
   const stream = new ReadableStream({
     async start(controller) {
