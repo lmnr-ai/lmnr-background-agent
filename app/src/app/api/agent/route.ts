@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runAgent } from "@/lib/agent";
 import { transformSdkMessage, encodeNdjsonLine } from "@/lib/stream";
 
+export const dynamic = "force-dynamic";
 export const maxDuration = 300; // 5 min edge function timeout
 
 export async function POST(req: NextRequest) {

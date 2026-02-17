@@ -177,6 +177,7 @@ def create_sandbox():
         idle_timeout=3600,
         cpu=SANDBOX_CPU,
         memory=SANDBOX_MEMORY,
+        secrets=[modal.Secret.from_name("lmnr-agent-secrets")],
     )
 
     try:
