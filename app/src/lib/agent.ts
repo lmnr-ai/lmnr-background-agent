@@ -16,7 +16,8 @@ const DEFAULT_OPTIONS: Options = {
     "Grep",
     "MultiEdit",
   ],
-  permissionMode: "acceptEdits",
+  permissionMode: "bypassPermissions",
+  allowDangerouslySkipPermissions: true,
   systemPrompt: {
     type: "preset",
     preset: "claude_code",
