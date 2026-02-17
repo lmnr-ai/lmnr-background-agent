@@ -174,7 +174,7 @@ def create_sandbox():
         app=app,
         encrypted_ports=[NEXTJS_PORT],
         timeout=3600,
-        idle_timeout=900,
+        idle_timeout=3600,
         cpu=SANDBOX_CPU,
         memory=SANDBOX_MEMORY,
     )
@@ -263,7 +263,7 @@ def main(action: str = "snapshot"):
         import urllib.request
 
         req = urllib.request.Request(
-            create_sandbox.web_url,
+            create_sandbox.get_web_url(),
             data=json.dumps({}).encode(),
             headers={"Content-Type": "application/json"},
             method="POST",
