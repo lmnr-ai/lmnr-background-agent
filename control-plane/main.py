@@ -1,5 +1,6 @@
 import modal
 import time
+from dataclasses import dataclass
 
 # ---------------------------------------------------------------------------
 # App & Shared Resources
@@ -9,15 +10,61 @@ app = modal.App("background-agent")
 
 snapshot_store = modal.Dict.from_name("agent-snapshots", create_if_missing=True)
 
-LMNR_REPO = "https://github.com/lmnr-ai/lmnr.git"
-LMNR_BRANCH = "dev"
-AGENT_REPO = "https://github.com/lmnr-ai/lmnr-background-agent.git"
-AGENT_BRANCH = "dev"
 NEXTJS_PORT = 3005
 LMNR_FRONTEND_PORT = 3000
 
 SANDBOX_CPU = 4.0
 SANDBOX_MEMORY = 8192  # 8 GB
+
+
+# ---------------------------------------------------------------------------
+# Repo Definitions
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class Repo:
+    name: str  # directory under / in the sandbox
+    url: str
+    branch: str
+    build_cmd: str  # run from the repo root; use && to chain
+    timeout: int = 1800
+
+    @property
+    def path(self) -> str:
+        return f"/{self.name}"
+
+    @property
+    def store_key(self) -> str:
+        return f"commit_{self.name}"
+
+
+REPOS: list[Repo] = [
+    Repo(
+        name="lmnr",
+        url="https://github.com/lmnr-ai/lmnr.git",
+        branch="dev",
+        build_cmd=(
+            "cd app-server && cargo build --release"
+            " && cd ../frontend && pnpm install && pnpm build"
+        ),
+    ),
+    Repo(
+        name="lmnr-python",
+        url="https://github.com/lmnr-ai/lmnr-python.git",
+        branch="main",
+        build_cmd="uv sync",
+        timeout=300,
+    ),
+    Repo(
+        name="lmnr-background-agent",
+        url="https://github.com/lmnr-ai/lmnr-background-agent.git",
+        branch="dev",
+        build_cmd="cd app && pnpm install && pnpm build",
+        timeout=120,
+    ),
+]
+
 
 # ---------------------------------------------------------------------------
 # Base Image
@@ -50,9 +97,13 @@ base_image = (
     .run_commands(
         "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y",
     )
+    # uv (Python package manager)
+    .run_commands(
+        "curl -LsSf https://astral.sh/uv/install.sh | sh",
+    )
     .env(
         {
-            "PATH": "/root/.cargo/bin:/usr/local/sbin:/usr/local/bin:"
+            "PATH": "/root/.cargo/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:"
             "/usr/sbin:/usr/bin:/sbin:/bin",
         }
     )
@@ -88,6 +139,33 @@ def run_cmd(sb: modal.Sandbox, cmd: str, timeout: int = 1800) -> str:
     return "".join(stdout_lines)
 
 
+def clone_and_build(sb: modal.Sandbox, repo: Repo) -> str:
+    """Clone a repo and run its build command. Returns the commit hash."""
+    run_cmd(sb, f"git clone --branch {repo.branch} --depth 1 {repo.url} {repo.path}")
+    run_cmd(sb, f"cd {repo.path} && {repo.build_cmd}", timeout=repo.timeout)
+    commit = run_cmd(sb, f"cd {repo.path} && git rev-parse HEAD").strip()
+    print(f"  {repo.name} commit: {commit}")
+    return commit
+
+
+def pull_and_rebuild(sb: modal.Sandbox, repo: Repo) -> None:
+    """Pull latest changes for a repo and rebuild if the commit changed."""
+    stored_commit: str = snapshot_store.get(repo.store_key, "")
+    run_cmd(sb, f"cd {repo.path} && git fetch origin {repo.branch}")
+    run_cmd(sb, f"cd {repo.path} && git reset --hard origin/{repo.branch}")
+
+    current_commit = run_cmd(sb, f"cd {repo.path} && git rev-parse HEAD").strip()
+
+    if current_commit != stored_commit:
+        print(
+            f"{repo.name} changed ({stored_commit[:8]}.. -> {current_commit[:8]}..)"
+            " – rebuilding …"
+        )
+        run_cmd(sb, f"cd {repo.path} && {repo.build_cmd}", timeout=repo.timeout)
+    else:
+        print(f"{repo.name} unchanged – skipping rebuild")
+
+
 # ---------------------------------------------------------------------------
 # Cron Job – rebuild snapshot every hour
 # ---------------------------------------------------------------------------
@@ -95,7 +173,7 @@ def run_cmd(sb: modal.Sandbox, cmd: str, timeout: int = 1800) -> str:
 
 @app.function(timeout=3600, schedule=modal.Cron("0 * * * *"))
 def rebuild_snapshot():
-    """Build the lmnr repo (Rust + Next.js) and snapshot the filesystem.
+    """Clone all repos, run their builds, and snapshot the filesystem.
 
     The snapshot is stored in a ``modal.Dict`` so the FastAPI endpoint can
     spin up sandboxes from it almost instantly.
@@ -112,37 +190,13 @@ def rebuild_snapshot():
     )
 
     try:
-        # 1. Clone the lmnr repo (dev branch)
-        run_cmd(
-            sb,
-            f"git clone --branch {LMNR_BRANCH} --depth 1 {LMNR_REPO} /lmnr",
-        )
+        for repo in REPOS:
+            commit = clone_and_build(sb, repo)
+            snapshot_store[repo.store_key] = commit
 
-        # 2. Build the Rust project (app-server)
-        run_cmd(sb, "cd /lmnr/app-server && cargo build --release")
-
-        # 3. Build the Next.js project (frontend)
-        run_cmd(sb, "cd /lmnr/frontend && pnpm install && pnpm build")
-
-        # 4. Clone and pre-build the background-agent app
-        run_cmd(sb, f"git clone --branch {AGENT_BRANCH} --depth 1 {AGENT_REPO} /lmnr-background-agent")
-        run_cmd(sb, "cd /lmnr-background-agent/app && pnpm install", timeout=120)
-        run_cmd(sb, "cd /lmnr-background-agent/app && pnpm build", timeout=120)
-
-        # 5. Capture the current commit hashes
-        commit_hash = run_cmd(sb, "cd /lmnr && git rev-parse HEAD").strip()
-        agent_commit_hash = run_cmd(sb, "cd /lmnr-background-agent && git rev-parse HEAD").strip()
-        print(f"  lmnr commit: {commit_hash}")
-        print(f"  agent commit: {agent_commit_hash}")
-
-        # 6. Snapshot the filesystem
         print("Taking filesystem snapshot …")
         snapshot_image = sb.snapshot_filesystem()
-
-        # 7. Persist snapshot id and commit hashes
         snapshot_store["latest_snapshot_id"] = snapshot_image.object_id
-        snapshot_store["latest_lmnr_commit"] = commit_hash
-        snapshot_store["latest_agent_commit"] = agent_commit_hash
 
         print(f"Snapshot saved: {snapshot_image.object_id}")
     except Exception as exc:
@@ -191,40 +245,11 @@ def create_sandbox():
     )
 
     try:
-        # 3. Pull latest lmnr changes and conditionally rebuild ------------------
-        stored_commit: str = snapshot_store.get("latest_lmnr_commit", "")
-        run_cmd(sb, f"cd /lmnr && git fetch origin {LMNR_BRANCH}")
-        run_cmd(sb, f"cd /lmnr && git reset --hard origin/{LMNR_BRANCH}")
+        # 3. Pull latest changes and conditionally rebuild each repo -------------
+        for repo in REPOS:
+            pull_and_rebuild(sb, repo)
 
-        current_commit = run_cmd(sb, "cd /lmnr && git rev-parse HEAD").strip()
-
-        if current_commit != stored_commit:
-            print(
-                f"lmnr repo changed ({stored_commit[:8]}.. -> {current_commit[:8]}..)"
-                " – rebuilding …"
-            )
-            run_cmd(sb, "cd /lmnr/app-server && cargo build --release")
-            run_cmd(sb, "cd /lmnr/frontend && pnpm install && pnpm build")
-        else:
-            print("lmnr repo unchanged – skipping rebuild")
-
-        # 4. Pull latest agent repo changes and conditionally rebuild -------------
-        stored_agent_commit: str = snapshot_store.get("latest_agent_commit", "")
-        run_cmd(sb, f"cd /lmnr-background-agent && git fetch origin {AGENT_BRANCH}")
-        run_cmd(sb, f"cd /lmnr-background-agent && git reset --hard origin/{AGENT_BRANCH}")
-
-        current_agent_commit = run_cmd(sb, "cd /lmnr-background-agent && git rev-parse HEAD").strip()
-
-        if current_agent_commit != stored_agent_commit:
-            print(
-                f"agent repo changed ({stored_agent_commit[:8]}.. -> {current_agent_commit[:8]}..)"
-                " – rebuilding …"
-            )
-            run_cmd(sb, "cd /lmnr-background-agent/app && pnpm install", timeout=120)
-            run_cmd(sb, "cd /lmnr-background-agent/app && pnpm build", timeout=120)
-        else:
-            print("agent repo unchanged – skipping rebuild")
-
+        # 4. Start the agent Next.js server --------------------------------------
         sb.exec(
             "bash",
             "-c",
@@ -237,7 +262,6 @@ def create_sandbox():
         agent_tunnel = tunnels[NEXTJS_PORT]
         frontend_tunnel = tunnels[LMNR_FRONTEND_PORT]
 
-        # Poll until the Next.js server is healthy
         import urllib.request
 
         start = time.time()
@@ -254,12 +278,11 @@ def create_sandbox():
 
         return {
             "sandbox_id": sb.object_id,
-            "url": agent_tunnel.url,
-            "frontend_url": frontend_tunnel.url,
+            "agent_url": agent_tunnel.url,
+            "lmnr_frontend_url": frontend_tunnel.url,
         }
 
     except Exception as exc:
-        # If anything went wrong during setup, clean up the sandbox
         sb.terminate()
         return {"error": str(exc)}
 
