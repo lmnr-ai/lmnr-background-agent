@@ -253,7 +253,7 @@ def create_sandbox():
         sb.exec(
             "bash",
             "-c",
-            f"cd /lmnr-background-agent/app && AGENT_CWD=/ PORT={NEXTJS_PORT} pnpm start",
+            f"cd /lmnr-background-agent/app && AGENT_CWD=/ PORT={NEXTJS_PORT} LMNR_LOG_LEVEL=debug pnpm start",
             timeout=3600,
         )
 
