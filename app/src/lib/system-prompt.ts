@@ -31,6 +31,20 @@ Task Instructions:
   - LMNR_PROJECT_API_KEY
   - ANTHROPIC_API_KEY
   - AGENT_MODEL
-`;
+  - GITHUB_TOKEN
 
-// TODO: add git instructions once auth config is added
+Git & Pull Requests:
+- The GitHub CLI (\`gh\`) is pre-installed and authenticated via GITHUB_TOKEN.
+- When your changes are ready and the task asks for a PR (or it makes sense to submit one):
+  1. Create a new branch from the current HEAD:
+     git checkout -b <descriptive-branch-name>
+  2. Stage and commit your changes with a clear, conventional commit message:
+     git add -A && git commit -m "feat: ..."
+  3. Push the branch:
+     git push origin <descriptive-branch-name>
+  4. Create a pull request:
+     gh pr create --title "..." --body "..."
+- Use descriptive branch names like \`fix/issue-description\` or \`feat/feature-name\`.
+- Write clear PR titles and bodies summarizing what changed and why.
+- If the task does not explicitly ask for a PR, just make the changes locally.
+`;

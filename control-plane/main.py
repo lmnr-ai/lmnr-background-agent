@@ -97,6 +97,15 @@ base_image = (
     .run_commands(
         "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y",
     )
+    # GitHub CLI
+    .run_commands(
+        "curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg"
+        " | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg",
+        "echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg]"
+        " https://cli.github.com/packages stable main'"
+        " | tee /etc/apt/sources.list.d/github-cli.list",
+        "apt-get update && apt-get install -y gh",
+    )
     # uv (Python package manager)
     .run_commands(
         "curl -LsSf https://astral.sh/uv/install.sh | sh",
@@ -249,7 +258,15 @@ def create_sandbox():
         for repo in REPOS:
             pull_and_rebuild(sb, repo)
 
-        # 4. Start the agent Next.js server --------------------------------------
+        # 4. Configure git to authenticate via GitHub CLI (uses GITHUB_TOKEN) ---
+        run_cmd(sb, "gh auth setup-git")
+        run_cmd(
+            sb,
+            'git config --global user.email "agent@lmnr.ai"'
+            ' && git config --global user.name "Laminar Agent"',
+        )
+
+        # 5. Start the agent Next.js server --------------------------------------
         sb.exec(
             "bash",
             "-c",
@@ -257,7 +274,7 @@ def create_sandbox():
             timeout=3600,
         )
 
-        # 5. Wait for the tunnel to become available -----------------------------
+        # 6. Wait for the tunnel to become available -----------------------------
         tunnels = sb.tunnels(timeout=120)
         agent_tunnel = tunnels[NEXTJS_PORT]
         frontend_tunnel = tunnels[LMNR_FRONTEND_PORT]
