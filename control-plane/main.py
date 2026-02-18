@@ -108,7 +108,7 @@ def rebuild_snapshot():
         timeout=3600,
         cpu=SANDBOX_CPU,
         memory=SANDBOX_MEMORY,
-        secrets=[modal.Secret.from_name("lmnr-agent-secrets")],
+        secrets=[modal.Secret.from_name("background-agent-secrets")],
     )
 
     try:
