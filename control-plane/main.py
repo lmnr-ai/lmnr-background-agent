@@ -5,7 +5,7 @@ import time
 # App & Shared Resources
 # ---------------------------------------------------------------------------
 
-app = modal.App("lmnr-background-agent")
+app = modal.App("background-agent")
 
 snapshot_store = modal.Dict.from_name("lmnr-snapshots", create_if_missing=True)
 
@@ -186,7 +186,7 @@ def create_sandbox():
         idle_timeout=3600,
         cpu=SANDBOX_CPU,
         memory=SANDBOX_MEMORY,
-        secrets=[modal.Secret.from_name("lmnr-agent-secrets")],
+        secrets=[modal.Secret.from_name("background-agent-secrets")],
     )
 
     try:
