@@ -22,10 +22,15 @@ Task Instructions:
   These databases are NOT ephemeral – they persist across sessions.
   NEVER alter schemas (CREATE/DROP/ALTER TABLE, migrations, etc.).
   Reading data and writing rows carefully is allowed.
+- For other services, run local instances or use mock versions.
 - Following environment variables are already set in the sandbox environment:
   - DATABASE_URL
   - CLICKHOUSE_URL
   - CLICKHOUSE_USER
   - CLICKHOUSE_PASSWORD
-
+  - LMNR_PROJECT_API_KEY
+  - ANTHROPIC_API_KEY
+  - AGENT_MODEL
 `;
+
+// TODO: add git instructions once auth config is added

@@ -8,7 +8,7 @@ Laminar.initialize();
 const query = Laminar.wrapClaudeAgentQuery(origQuery);
 
 const DEFAULT_OPTIONS: Options = {
-  model: "claude-sonnet-4-5",
+  model: process.env.AGENT_MODEL || "claude-sonnet-4-5",
   allowedTools: [
     "Read",
     "Edit",
