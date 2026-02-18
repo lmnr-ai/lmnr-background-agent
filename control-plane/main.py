@@ -17,7 +17,7 @@ NEXTJS_PORT = 3005
 LMNR_FRONTEND_PORT = 3000
 
 SANDBOX_CPU = 4.0
-SANDBOX_MEMORY = 16384  # 16 GB – Rust builds are memory-hungry
+SANDBOX_MEMORY = 8192  # 8 GB
 
 # ---------------------------------------------------------------------------
 # Base Image
