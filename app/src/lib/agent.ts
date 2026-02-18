@@ -17,6 +17,8 @@ const DEFAULT_OPTIONS: Options = {
     "Glob",
     "Grep",
     "MultiEdit",
+    "WebSearch",
+    "WebFetch",
   ],
   permissionMode: "acceptEdits",
   systemPrompt: {
