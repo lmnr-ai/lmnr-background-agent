@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentMessage } from "@/lib/types";
 
 export type ChatMessage =
@@ -11,6 +11,13 @@ export function useAgent() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    fetch("/api/messages")
+      .then((res) => res.json())
+      .then((data: ChatMessage[]) => setChatMessages(data))
+      .catch(console.error);
+  }, []);
 
   const sendMessage = useCallback(async (prompt: string) => {
     setChatMessages((prev) => [...prev, { role: "user", text: prompt }]);

@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     "@anthropic-ai/claude-agent-sdk",
     "@lmnr-ai/lmnr",
+    "better-sqlite3",
   ],
 };
 
