@@ -43,7 +43,11 @@ export async function POST(req: NextRequest) {
         collectedMessages.push(errorMessage);
         controller.enqueue(encodeNdjsonLine(errorMessage));
       } finally {
-        saveAssistantMessage(collectedMessages);
+        try {
+          saveAssistantMessage(collectedMessages);
+        } catch (e) {
+          console.error("Failed to save assistant message:", e);
+        }
         controller.close();
       }
     },
