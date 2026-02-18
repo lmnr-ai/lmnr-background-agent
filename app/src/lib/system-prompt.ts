@@ -44,6 +44,7 @@ Git & Pull Requests:
      git push origin <descriptive-branch-name>
   4. Create a pull request:
      gh pr create --title "..." --body "..."
+- NEVER push directly to \`main\` or \`dev\` branches. Always create a new feature branch.
 - Use descriptive branch names like \`fix/issue-description\` or \`feat/feature-name\`.
 - Write clear PR titles and bodies summarizing what changed and why.
 - If the task does not explicitly ask for a PR, just make the changes locally.
