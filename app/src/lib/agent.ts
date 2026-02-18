@@ -2,6 +2,7 @@ import "server-only";
 
 import { query as origQuery, type Options } from "@anthropic-ai/claude-agent-sdk";
 import { Laminar } from "@lmnr-ai/lmnr";
+import { SYSTEM_PROMPT } from "./system-prompt";
 
 Laminar.initialize();
 const query = Laminar.wrapClaudeAgentQuery(origQuery);
@@ -21,8 +22,7 @@ const DEFAULT_OPTIONS: Options = {
   systemPrompt: {
     type: "preset",
     preset: "claude_code",
-    append:
-      "You are a background coding agent. Complete the task autonomously without asking for clarification.",
+    append: SYSTEM_PROMPT,
   },
 };
 
