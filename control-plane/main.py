@@ -7,7 +7,7 @@ import time
 
 app = modal.App("background-agent")
 
-snapshot_store = modal.Dict.from_name("lmnr-snapshots", create_if_missing=True)
+snapshot_store = modal.Dict.from_name("agent-snapshots", create_if_missing=True)
 
 LMNR_REPO = "https://github.com/lmnr-ai/lmnr.git"
 LMNR_BRANCH = "dev"
@@ -108,6 +108,7 @@ def rebuild_snapshot():
         timeout=3600,
         cpu=SANDBOX_CPU,
         memory=SANDBOX_MEMORY,
+        secrets=[modal.Secret.from_name("lmnr-agent-secrets")],
     )
 
     try:
