@@ -24,6 +24,7 @@ const DEFAULT_OPTIONS: Options = {
     preset: "claude_code",
     append: SYSTEM_PROMPT,
   },
+  settingSources: ["project"],
 };
 
 export type AgentRun = {
