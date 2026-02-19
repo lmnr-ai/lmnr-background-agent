@@ -227,7 +227,7 @@ def rebuild_snapshot():
             snapshot_store[repo.store_key] = commit
 
         print("Taking filesystem snapshot …")
-        snapshot_image = sb.snapshot_filesystem()
+        snapshot_image = sb.snapshot_filesystem(timeout=300)
         snapshot_store["latest_snapshot_id"] = snapshot_image.object_id
 
         print(f"Snapshot saved: {snapshot_image.object_id}")
