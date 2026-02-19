@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type FormEvent } from "react";
+import { useRef, useCallback, type FormEvent } from "react";
 
 export function InputBar({
   onSend,
@@ -13,12 +13,22 @@ export function InputBar({
 }) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const autoResize = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, []);
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const value = inputRef.current?.value.trim();
     if (!value || isLoading) return;
     onSend(value);
-    if (inputRef.current) inputRef.current.value = "";
+    if (inputRef.current) {
+      inputRef.current.value = "";
+      inputRef.current.style.height = "auto";
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -39,6 +49,7 @@ export function InputBar({
         placeholder="Describe a coding task..."
         className="flex-1 resize-none rounded-lg border border-zinc-300 dark:border-zinc-600 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-zinc-400 focus:border-zinc-500 dark:focus:border-zinc-400"
         onKeyDown={handleKeyDown}
+        onInput={autoResize}
         disabled={isLoading}
       />
       {isLoading ? (
