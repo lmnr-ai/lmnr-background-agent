@@ -401,14 +401,13 @@ def create_sandbox(data: dict | None = None):
         sb.exec(
             "bash",
             "-c",
-            f"cd /lmnr-background-agent/app && AGENT_CWD=/ LMNR_LOG_LEVEL=debug pnpm start -- --port {NEXTJS_PORT}",
+            f"cd /lmnr-background-agent/app && AGENT_CWD=/ PORT={NEXTJS_PORT} LMNR_LOG_LEVEL=debug pnpm start",
             timeout=3600,
         )
 
         # 7. Wait for the tunnel to become available -----------------------------
         tunnels = sb.tunnels(timeout=120)
         agent_tunnel = tunnels[NEXTJS_PORT]
-        frontend_tunnel = tunnels[LMNR_FRONTEND_PORT]
 
         import urllib.request
 
@@ -422,7 +421,6 @@ def create_sandbox(data: dict | None = None):
                 time.sleep(2)
 
         print(f"Sandbox ready: {agent_tunnel.url}")
-        print(f"Frontend tunnel: {frontend_tunnel.url}")
 
         return {
             "sandbox_id": sb.object_id,
