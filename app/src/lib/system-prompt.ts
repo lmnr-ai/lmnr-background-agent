@@ -11,31 +11,59 @@ Environment:
 - Repositories that you are supposed to be working on are cloned under /:
   /lmnr – the main Laminar platform (Rust backend + Next.js frontend + Python query validator service).
   /lmnr-python – Python SDK for Laminar.
-  Other project repos may also be present at the root level. 
-  Refer to the project's Claude.md file for project specific instructions.
+  Other project repos may also be present at the root level.
+  Refer to the project's CLAUDE.md file for project specific instructions.
 - You have full shell access. Builds, tests, and servers can be run freely.
 - All file changes are ephemeral to this sandbox session.
 
 Task Instructions:
 - Docker is NOT available in the sandbox. Never attempt to use docker or docker-compose.
-  - For PostgreSQL and ClickHouse, use the provided staging databases.
+- For PostgreSQL and ClickHouse, use the provided staging databases.
   These databases are NOT ephemeral – they persist across sessions.
-  NEVER alter schemas (CREATE/DROP/ALTER TABLE, migrations, etc.).
+  NEVER alter schemas (CREATE/DROP/ALTER TABLE, indexes, etc.).
+  Migrations are already run in the staging databases.
   Reading data and writing rows carefully is allowed.
-  - For other services, run local instances or use mock versions.
-- Following environment variables are already set in the sandbox environment:
-  - DATABASE_URL
-  - CLICKHOUSE_URL
-  - CLICKHOUSE_USER
-  - CLICKHOUSE_PASSWORD
-  - LMNR_PROJECT_API_KEY
-  - ANTHROPIC_API_KEY
-  - AGENT_MODEL
-  - < Github env vars required for gh cli >
+- For other services (RabbitMQ, Redis, Quickwit), use the built-in mock/fallback versions.
+  The app-server runs in ENVIRONMENT=LITE mode which uses in-memory alternatives.
 - For changes involving UI, use the browser MCP server to test the changes.
 
+Running the /lmnr Project:
+The .env files are pre-configured with staging database credentials. To run the stack:
+
+1. Query Engine (Python gRPC service) - Port 8903:
+   cd /lmnr/query-engine && uv run python src/server.py
+
+2. App Server (Rust backend) - Ports 8000 (HTTP), 8001 (gRPC), 8002 (Realtime):
+   cd /lmnr/app-server && cargo run
+
+3. Frontend (Next.js) - Port 3000:
+   cd /lmnr/frontend && pnpm run dev
+
+Run each service in a separate background process or terminal. Example:
+   cd /lmnr/query-engine && uv run python src/server.py &
+   cd /lmnr/app-server && cargo run --release &
+   cd /lmnr/frontend && pnpm run dev &
+
+Service dependencies:
+- Frontend depends on app-server (BACKEND_URL=http://localhost:8000)
+- App-server depends on query-engine (QUERY_ENGINE_URL=http://localhost:8903)
+- Both app-server and frontend connect to staging PostgreSQL and ClickHouse
+
+Reserved ports (DO NOT USE):
+- 3005: Agent infrastructure (this sandbox's control plane)
+
+Environment Variables:
+The following are pre-set in the sandbox AND in the project .env files:
+- DATABASE_URL: PostgreSQL connection string (staging)
+- CLICKHOUSE_URL, CLICKHOUSE_USER, CLICKHOUSE_PASSWORD: ClickHouse credentials (staging)
+- LMNR_PROJECT_API_KEY: For Laminar SDK tracing
+- ANTHROPIC_API_KEY: For LLM calls
+- ENVIRONMENT=LITE: Enables in-memory fallbacks for RabbitMQ/Redis
+- QUERY_ENGINE_URL=http://localhost:8903: Query engine endpoint
+- AEAD_SECRET_KEY, SHARED_SECRET_TOKEN, NEXTAUTH_SECRET: Security tokens (pre-configured)
+
 Git & Pull Requests:
-- The GitHub CLI (\`gh\`) is pre-installed and authenticated via GITHUB_TOKEN.
+- The GitHub CLI (\`gh\`) is pre-installed and authenticated using Github App.
 - When your changes are ready and the task asks for a PR (or it makes sense to submit one):
   1. Create a new branch from the current HEAD:
      git checkout -b <descriptive-branch-name>

@@ -204,6 +204,58 @@ def pull_and_rebuild(sb: modal.Sandbox, repo: Repo) -> None:
         print(f"{repo.name} unchanged – skipping rebuild")
 
 
+def create_lmnr_env_files(sb: modal.Sandbox) -> None:
+    """Create .env files for the lmnr project with staging database credentials."""
+
+    # App-server .env
+    app_server_env = """
+DATABASE_URL="${DATABASE_URL}"
+PORT=8000
+GRPC_PORT=8001
+CONSUMER_PORT=8002
+CLICKHOUSE_URL="${CLICKHOUSE_URL}"
+CLICKHOUSE_USER="${CLICKHOUSE_USER}"
+CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD}"
+CLICKHOUSE_RO_USER="${CLICKHOUSE_USER}"
+CLICKHOUSE_RO_PASSWORD="${CLICKHOUSE_PASSWORD}"
+SHARED_SECRET_TOKEN=sandbox_secret_token_12345
+AEAD_SECRET_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+ENVIRONMENT=LITE
+QUERY_ENGINE_URL=http://localhost:8903
+""".strip()
+
+    # Frontend .env.local
+    frontend_env = """
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=sandbox_nextauth_secret_12345
+BACKEND_URL=http://localhost:8000
+BACKEND_RT_URL=http://localhost:8002
+NEXT_OTEL_FETCH_DISABLED=1
+SHARED_SECRET_TOKEN=sandbox_secret_token_12345
+DATABASE_URL="${DATABASE_URL}"
+DATABASE_MAX_CONNECTIONS=10
+FORCE_RUN_MIGRATIONS=false
+AEAD_SECRET_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+ENVIRONMENT=LITE
+CLICKHOUSE_USER="${CLICKHOUSE_USER}"
+CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD}"
+CLICKHOUSE_URL="${CLICKHOUSE_URL}"
+QUERY_ENGINE_URL=http://localhost:8903
+""".strip()
+
+    # Query-engine .env
+    query_engine_env = """
+PORT=8903
+""".strip()
+
+    # Write env files using heredocs with variable expansion
+    run_cmd(sb, f'cat << EOF > /lmnr/app-server/.env\n{app_server_env}\nEOF')
+    run_cmd(sb, f'cat << EOF > /lmnr/frontend/.env.local\n{frontend_env}\nEOF')
+    run_cmd(sb, f'cat << EOF > /lmnr/query-engine/.env\n{query_engine_env}\nEOF')
+
+    print("Created .env files for lmnr project")
+
+
 # ---------------------------------------------------------------------------
 # Cron Job – rebuild snapshot every hour
 # ---------------------------------------------------------------------------
@@ -318,7 +370,10 @@ def create_sandbox(data: dict | None = None):
         for repo in REPOS:
             pull_and_rebuild(sb, repo)
 
-        # 4. Configure git auth (token-based) and identity -----------------------
+        # 4. Create .env files for lmnr project with staging credentials ---------
+        create_lmnr_env_files(sb)
+
+        # 5. Configure git auth (token-based) and identity -----------------------
         run_cmd(
             sb,
             'git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/"'
@@ -330,7 +385,7 @@ def create_sandbox(data: dict | None = None):
             f' && git config --global user.email "{user_email}"',
         )
 
-        # 5. Start the agent Next.js server --------------------------------------
+        # 6. Start the agent Next.js server --------------------------------------
         sb.exec(
             "bash",
             "-c",
@@ -338,7 +393,7 @@ def create_sandbox(data: dict | None = None):
             timeout=3600,
         )
 
-        # 6. Wait for the tunnel to become available -----------------------------
+        # 7. Wait for the tunnel to become available -----------------------------
         tunnels = sb.tunnels(timeout=120)
         agent_tunnel = tunnels[NEXTJS_PORT]
         frontend_tunnel = tunnels[LMNR_FRONTEND_PORT]
