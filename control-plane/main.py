@@ -209,7 +209,7 @@ def pull_and_rebuild(sb: modal.Sandbox, repo: Repo) -> None:
 # ---------------------------------------------------------------------------
 
 
-@app.function(timeout=1200, schedule=modal.Cron("0 * * * *"))
+@app.function(timeout=3600, schedule=modal.Cron("0 */3 * * *"))
 def rebuild_snapshot():
     """Clone all repos, run their builds, and snapshot the filesystem.
 
