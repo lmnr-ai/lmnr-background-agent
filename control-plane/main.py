@@ -15,12 +15,19 @@ NEXTJS_PORT = 3005
 LMNR_FRONTEND_PORT = 3000
 
 SANDBOX_CPU = 4.0
-SANDBOX_MEMORY = 8192  # 8 GB
+SANDBOX_MEMORY = 4096  # 4 GB
 
 
 # ---------------------------------------------------------------------------
 # Repo Definitions
 # ---------------------------------------------------------------------------
+
+
+@dataclass
+class EnvFile:
+    """Environment file definition for a repo subdirectory."""
+    subpath: str  # relative path from repo root, e.g. "app-server/.env"
+    content: str  # content with ${VAR} placeholders for shell expansion
 
 
 @dataclass
@@ -30,6 +37,7 @@ class Repo:
     branch: str
     build_cmd: str  # run from the repo root; use && to chain
     timeout: int = 1800
+    env_files: list[EnvFile] | None = None
 
     @property
     def path(self) -> str:
@@ -38,6 +46,55 @@ class Repo:
     @property
     def store_key(self) -> str:
         return f"commit_{self.name}"
+
+    def create_env_files(self, sb: "modal.Sandbox", run_cmd_fn) -> None:
+        """Create all env files for this repo using shell variable expansion."""
+        if not self.env_files:
+            return
+        for env_file in self.env_files:
+            filepath = f"{self.path}/{env_file.subpath}"
+            run_cmd_fn(sb, f'cat << EOF > {filepath}\n{env_file.content}\nEOF')
+            print(f"  Created {filepath}")
+
+
+# ---------------------------------------------------------------------------
+# Env file contents (use ${VAR} for shell expansion from Modal secrets)
+# ---------------------------------------------------------------------------
+
+LMNR_APP_SERVER_ENV = """\
+DATABASE_URL="${DATABASE_URL}"
+PORT=8000
+GRPC_PORT=8001
+CONSUMER_PORT=8002
+CLICKHOUSE_URL="${CLICKHOUSE_URL}"
+CLICKHOUSE_USER="${CLICKHOUSE_USER}"
+CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD}"
+CLICKHOUSE_RO_USER="${CLICKHOUSE_USER}"
+CLICKHOUSE_RO_PASSWORD="${CLICKHOUSE_PASSWORD}"
+SHARED_SECRET_TOKEN=sandbox_secret_token_12345
+AEAD_SECRET_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+ENVIRONMENT=LITE
+QUERY_ENGINE_URL=http://localhost:8903"""
+
+LMNR_FRONTEND_ENV = """\
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=sandbox_nextauth_secret_12345
+BACKEND_URL=http://localhost:8000
+BACKEND_RT_URL=http://localhost:8002
+NEXT_OTEL_FETCH_DISABLED=1
+SHARED_SECRET_TOKEN=sandbox_secret_token_12345
+DATABASE_URL="${DATABASE_URL}"
+DATABASE_MAX_CONNECTIONS=10
+FORCE_RUN_MIGRATIONS=false
+AEAD_SECRET_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+ENVIRONMENT=LITE
+CLICKHOUSE_USER="${CLICKHOUSE_USER}"
+CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD}"
+CLICKHOUSE_URL="${CLICKHOUSE_URL}"
+QUERY_ENGINE_URL=http://localhost:8903"""
+
+LMNR_QUERY_ENGINE_ENV = """\
+PORT=8903"""
 
 
 REPOS: list[Repo] = [
@@ -49,6 +106,11 @@ REPOS: list[Repo] = [
             "cd app-server && cargo build --release"
             " && cd ../frontend && pnpm install && pnpm build"
         ),
+        env_files=[
+            EnvFile("app-server/.env", LMNR_APP_SERVER_ENV),
+            EnvFile("frontend/.env.local", LMNR_FRONTEND_ENV),
+            EnvFile("query-engine/.env", LMNR_QUERY_ENGINE_ENV),
+        ],
     ),
     Repo(
         name="lmnr-python",
@@ -204,58 +266,6 @@ def pull_and_rebuild(sb: modal.Sandbox, repo: Repo) -> None:
         print(f"{repo.name} unchanged – skipping rebuild")
 
 
-def create_lmnr_env_files(sb: modal.Sandbox) -> None:
-    """Create .env files for the lmnr project with staging database credentials."""
-
-    # App-server .env
-    app_server_env = """
-DATABASE_URL="${DATABASE_URL}"
-PORT=8000
-GRPC_PORT=8001
-CONSUMER_PORT=8002
-CLICKHOUSE_URL="${CLICKHOUSE_URL}"
-CLICKHOUSE_USER="${CLICKHOUSE_USER}"
-CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD}"
-CLICKHOUSE_RO_USER="${CLICKHOUSE_USER}"
-CLICKHOUSE_RO_PASSWORD="${CLICKHOUSE_PASSWORD}"
-SHARED_SECRET_TOKEN=sandbox_secret_token_12345
-AEAD_SECRET_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-ENVIRONMENT=LITE
-QUERY_ENGINE_URL=http://localhost:8903
-""".strip()
-
-    # Frontend .env.local
-    frontend_env = """
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=sandbox_nextauth_secret_12345
-BACKEND_URL=http://localhost:8000
-BACKEND_RT_URL=http://localhost:8002
-NEXT_OTEL_FETCH_DISABLED=1
-SHARED_SECRET_TOKEN=sandbox_secret_token_12345
-DATABASE_URL="${DATABASE_URL}"
-DATABASE_MAX_CONNECTIONS=10
-FORCE_RUN_MIGRATIONS=false
-AEAD_SECRET_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-ENVIRONMENT=LITE
-CLICKHOUSE_USER="${CLICKHOUSE_USER}"
-CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD}"
-CLICKHOUSE_URL="${CLICKHOUSE_URL}"
-QUERY_ENGINE_URL=http://localhost:8903
-""".strip()
-
-    # Query-engine .env
-    query_engine_env = """
-PORT=8903
-""".strip()
-
-    # Write env files using heredocs with variable expansion
-    run_cmd(sb, f'cat << EOF > /lmnr/app-server/.env\n{app_server_env}\nEOF')
-    run_cmd(sb, f'cat << EOF > /lmnr/frontend/.env.local\n{frontend_env}\nEOF')
-    run_cmd(sb, f'cat << EOF > /lmnr/query-engine/.env\n{query_engine_env}\nEOF')
-
-    print("Created .env files for lmnr project")
-
-
 # ---------------------------------------------------------------------------
 # Cron Job – rebuild snapshot every hour
 # ---------------------------------------------------------------------------
@@ -370,8 +380,9 @@ def create_sandbox(data: dict | None = None):
         for repo in REPOS:
             pull_and_rebuild(sb, repo)
 
-        # 4. Create .env files for lmnr project with staging credentials ---------
-        create_lmnr_env_files(sb)
+        # 4. Create .env files for repos that define them -------------------------
+        for repo in REPOS:
+            repo.create_env_files(sb, run_cmd)
 
         # 5. Configure git auth (token-based) and identity -----------------------
         run_cmd(

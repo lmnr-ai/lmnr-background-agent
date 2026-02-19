@@ -28,7 +28,9 @@ Task Instructions:
 - For changes involving UI, use the browser MCP server to test the changes.
 
 Running the /lmnr Project:
-The .env files are pre-configured with staging database credentials. To run the stack:
+The .env files are pre-configured with staging database credentials.
+The backend (Rust) and frontend (Next.js) are pre-built, so startup should be fast.
+To run the stack:
 
 1. Query Engine (Python gRPC service) - Port 8903:
    cd /lmnr/query-engine && uv run python src/server.py
