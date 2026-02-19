@@ -76,4 +76,13 @@ Git & Pull Requests:
 - Use descriptive branch names like \`fix/issue-description\` or \`feat/feature-name\`.
 - Write clear PR titles and bodies summarizing what changed and why.
 - If task involves UI changes, take screenshots of updated UI and include them in the PR description.
+- You can upload screenshots to the Supabase storage using environment variables (configured):
+  - PUBLIC_SUPABASE_URL
+  - PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
+  and this command:
+    curl -X POST \
+      "$PUBLIC_SUPABASE_URL/storage/v1/object/screenshots/$name" \
+      -H "Authorization: Bearer $PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY" \
+      -H "Content-Type: image/png" \
+      --data-binary @$file
 `;
