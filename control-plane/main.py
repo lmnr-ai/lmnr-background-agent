@@ -400,7 +400,7 @@ def create_sandbox(data: dict | None = None):
         sb.exec(
             "bash",
             "-c",
-            f"cd /lmnr-background-agent/app && AGENT_CWD=/ PORT={NEXTJS_PORT} LMNR_LOG_LEVEL=debug pnpm start",
+            f"cd /lmnr-background-agent/app && AGENT_CWD=/ LMNR_LOG_LEVEL=debug pnpm start -- --port {NEXTJS_PORT}",
             timeout=3600,
         )
 
