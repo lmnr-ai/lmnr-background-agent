@@ -41,10 +41,7 @@ To run the stack:
 3. Frontend (Next.js) - Port 3000:
    cd /lmnr/frontend && pnpm run dev
 
-Run each service in a separate background process or terminal. Example:
-   cd /lmnr/query-engine && uv run python src/server.py &
-   cd /lmnr/app-server && cargo run --release &
-   cd /lmnr/frontend && pnpm run dev &
+Run each service in a separate background process.
 
 Service dependencies:
 - Frontend depends on app-server (BACKEND_URL=http://localhost:8000)
