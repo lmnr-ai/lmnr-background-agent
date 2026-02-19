@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const prompt: string | undefined = body.prompt;
   const cwd: string | undefined = body.cwd;
+  const continueConversation: boolean = body.continue ?? false;
 
   if (!prompt || typeof prompt !== "string") {
     return NextResponse.json(
@@ -21,7 +22,10 @@ export async function POST(req: NextRequest) {
 
   saveUserMessage(prompt);
 
-  const { query: agentQuery, stderrChunks } = runAgent(prompt, cwd);
+  const { query: agentQuery, stderrChunks } = runAgent(prompt, {
+    cwd,
+    continue: continueConversation,
+  });
   const transformSdkMessage = createMessageTransformer();
   const collectedMessages: AgentMessage[] = [];
 

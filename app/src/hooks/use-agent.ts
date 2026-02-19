@@ -11,6 +11,7 @@ export function useAgent() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const hasConversation = useRef(false);
 
   useEffect(() => {
     fetch("/api/messages")
@@ -37,7 +38,10 @@ export function useAgent() {
       const res = await fetch("/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          prompt,
+          continue: hasConversation.current,
+        }),
         signal: controller.signal,
       });
 
@@ -76,6 +80,7 @@ export function useAgent() {
           }
         }
       }
+      hasConversation.current = true;
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         assistantMessages.push({

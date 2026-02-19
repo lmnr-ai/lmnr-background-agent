@@ -18,11 +18,11 @@ Environment:
 
 Task Instructions:
 - Docker is NOT available in the sandbox. Never attempt to use docker or docker-compose.
-- For PostgreSQL and ClickHouse, use the provided staging databases.
+  - For PostgreSQL and ClickHouse, use the provided staging databases.
   These databases are NOT ephemeral – they persist across sessions.
   NEVER alter schemas (CREATE/DROP/ALTER TABLE, migrations, etc.).
   Reading data and writing rows carefully is allowed.
-- For other services, run local instances or use mock versions.
+  - For other services, run local instances or use mock versions.
 - Following environment variables are already set in the sandbox environment:
   - DATABASE_URL
   - CLICKHOUSE_URL
@@ -31,7 +31,7 @@ Task Instructions:
   - LMNR_PROJECT_API_KEY
   - ANTHROPIC_API_KEY
   - AGENT_MODEL
-  - GITHUB_TOKEN
+  - < Github env vars required for gh cli >
 - For changes involving UI, use the browser MCP server to test the changes.
 
 Git & Pull Requests:

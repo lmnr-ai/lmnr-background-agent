@@ -43,16 +43,20 @@ export type AgentRun = {
 /**
  * Run the Claude agent with streaming.
  *
- * @param prompt  The user's task description
- * @param cwd    Working directory for the agent (defaults to process.cwd())
+ * @param prompt   The user's task description
+ * @param options  Optional overrides (cwd, continue conversation)
  */
-export function runAgent(prompt: string, cwd?: string): AgentRun {
+export function runAgent(
+  prompt: string,
+  options?: { cwd?: string; continue?: boolean },
+): AgentRun {
   const stderrChunks: string[] = [];
   const q = query({
     prompt,
     options: {
       ...DEFAULT_OPTIONS,
-      cwd: cwd ?? process.env.AGENT_CWD ?? process.cwd(),
+      cwd: options?.cwd ?? process.env.AGENT_CWD ?? process.cwd(),
+      continue: options?.continue,
       includePartialMessages: true,
       debug: true,
       stderr: (data: string) => {
