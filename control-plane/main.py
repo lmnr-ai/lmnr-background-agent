@@ -12,7 +12,6 @@ app = modal.App("background-agent")
 snapshot_store = modal.Dict.from_name("agent-snapshots", create_if_missing=True)
 
 NEXTJS_PORT = 3005
-LMNR_FRONTEND_PORT = 3000
 
 SANDBOX_CPU = 4.0
 SANDBOX_MEMORY = 4096  # 4 GB
@@ -368,7 +367,7 @@ def create_sandbox(data: dict | None = None):
     sb = modal.Sandbox.create(
         image=snapshot_image,
         app=app,
-        encrypted_ports=[NEXTJS_PORT, LMNR_FRONTEND_PORT],
+        encrypted_ports=[NEXTJS_PORT],
         timeout=3600,
         idle_timeout=3600,
         cpu=SANDBOX_CPU,
