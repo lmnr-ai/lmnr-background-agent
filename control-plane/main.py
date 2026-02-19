@@ -113,7 +113,7 @@ base_image = (
     )
     # Playwright MCP server
     .run_commands(
-        "npm install -g @playwright/mcp-server",
+        "npm install -g @playwright/mcp",
         "npx playwright install --with-deps chromium",
     )
     .env(

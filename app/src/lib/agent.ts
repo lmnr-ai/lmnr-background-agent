@@ -23,7 +23,7 @@ const DEFAULT_OPTIONS: Options = {
   mcpServers: {
     browser: {
       command: "npx",
-      args: ["@playwright/mcp-server"],
+      args: ["@playwright/mcp"],
     },
   },
   permissionMode: "acceptEdits",
