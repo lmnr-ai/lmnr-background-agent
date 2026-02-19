@@ -1,8 +1,6 @@
 import modal
 import os
 import time
-import jwt
-import requests
 from dataclasses import dataclass
 
 # ---------------------------------------------------------------------------
@@ -113,6 +111,9 @@ base_image = (
     .run_commands(
         "curl -LsSf https://astral.sh/uv/install.sh | sh",
     )
+    .run_commands(
+        "npx playwright install --with-deps chromium",
+    )
     .env(
         {
             "PATH": "/root/.cargo/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:"
@@ -155,6 +156,9 @@ def get_installation_token(
     app_id: str, private_key: str, installation_id: str
 ) -> str:
     """Generate a short-lived GitHub App installation token (~1 hour TTL)."""
+    import jwt
+    import requests
+
     now = int(time.time())
     payload = {"iat": now - 60, "exp": now + 10 * 60, "iss": app_id}
     encoded_jwt = jwt.encode(payload, private_key, algorithm="RS256")
