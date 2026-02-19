@@ -111,7 +111,9 @@ base_image = (
     .run_commands(
         "curl -LsSf https://astral.sh/uv/install.sh | sh",
     )
+    # Playwright MCP server
     .run_commands(
+        "npm install -g @playwright/mcp-server",
         "npx playwright install --with-deps chromium",
     )
     .env(
