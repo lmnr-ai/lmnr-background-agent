@@ -18,7 +18,14 @@ const DEFAULT_OPTIONS: Options = {
     "MultiEdit",
     "WebSearch",
     "WebFetch",
+    "mcp__browser__*",
   ],
+  mcpServers: {
+    browser: {
+      command: "npx",
+      args: ["@playwright/mcp-server"],
+    },
+  },
   permissionMode: "acceptEdits",
   systemPrompt: {
     type: "preset",

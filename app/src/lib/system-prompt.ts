@@ -32,6 +32,7 @@ Task Instructions:
   - ANTHROPIC_API_KEY
   - AGENT_MODEL
   - GITHUB_TOKEN
+- For changes involving UI, use the browser MCP server to test the changes.
 
 Git & Pull Requests:
 - The GitHub CLI (\`gh\`) is pre-installed and authenticated via GITHUB_TOKEN.
@@ -47,5 +48,5 @@ Git & Pull Requests:
 - NEVER push directly to \`main\` or \`dev\` branches. Always create a new feature branch.
 - Use descriptive branch names like \`fix/issue-description\` or \`feat/feature-name\`.
 - Write clear PR titles and bodies summarizing what changed and why.
-- If the task does not explicitly ask for a PR, just make the changes locally.
+- If task involves UI changes, take screenshots of updated UI and include them in the PR description.
 `;
