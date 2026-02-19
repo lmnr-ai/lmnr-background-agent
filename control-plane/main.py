@@ -1,5 +1,8 @@
 import modal
+import os
 import time
+import jwt
+import requests
 from dataclasses import dataclass
 
 # ---------------------------------------------------------------------------
@@ -148,6 +151,26 @@ def run_cmd(sb: modal.Sandbox, cmd: str, timeout: int = 1800) -> str:
     return "".join(stdout_lines)
 
 
+def get_installation_token(
+    app_id: str, private_key: str, installation_id: str
+) -> str:
+    """Generate a short-lived GitHub App installation token (~1 hour TTL)."""
+    now = int(time.time())
+    payload = {"iat": now - 60, "exp": now + 10 * 60, "iss": app_id}
+    encoded_jwt = jwt.encode(payload, private_key, algorithm="RS256")
+    print(encoded_jwt)
+
+    resp = requests.post(
+        f"https://api.github.com/app/installations/{installation_id}/access_tokens",
+        headers={
+            "Authorization": f"Bearer {encoded_jwt}",
+            "Accept": "application/vnd.github+json",
+        },
+    )
+    resp.raise_for_status()
+    return resp.json()["token"]
+
+
 def clone_and_build(sb: modal.Sandbox, repo: Repo) -> str:
     """Clone a repo and run its build command. Returns the commit hash."""
     run_cmd(sb, f"git clone --branch {repo.branch} --depth 1 {repo.url} {repo.path}")
@@ -180,7 +203,7 @@ def pull_and_rebuild(sb: modal.Sandbox, repo: Repo) -> None:
 # ---------------------------------------------------------------------------
 
 
-@app.function(timeout=3600, schedule=modal.Cron("0 * * * *"))
+@app.function(timeout=1200, schedule=modal.Cron("0 * * * *"))
 def rebuild_snapshot():
     """Clone all repos, run their builds, and snapshot the filesystem.
 
@@ -220,18 +243,49 @@ def rebuild_snapshot():
 # ---------------------------------------------------------------------------
 
 
-@app.function(timeout=600, image=modal.Image.debian_slim().pip_install("fastapi[standard]"))
+@app.function(
+    timeout=600,
+    image=modal.Image.debian_slim().pip_install(
+        "fastapi[standard]", "PyJWT[crypto]", "requests"
+    ),
+    secrets=[modal.Secret.from_name("background-agent-secrets")],
+)
 @modal.fastapi_endpoint(method="POST")
-def create_sandbox():
+def create_sandbox(data: dict | None = None):
     """Spin up a sandbox from the pre-built snapshot and return its public URL.
+
+    Request body (all fields optional)::
+
+        {
+            "user_name": "Your Name",
+            "user_email": "you@example.com"
+        }
 
     Response::
 
         {
             "sandbox_id": "sb-...",
-            "url": "https://....modal.run"
+            "agent_url": "https://....modal.run"
         }
     """
+    data = data or {}
+    user_name = data.get("user_name", "Laminar Agent")
+    user_email = data.get("user_email", "agent@lmnr.ai")
+
+    # Generate a short-lived GitHub App installation token (~1 hour TTL)
+    github_token = get_installation_token(
+        app_id=os.environ["GITHUB_APP_ID"],
+        private_key=os.environ["GITHUB_APP_PRIVATE_KEY"],
+        installation_id=os.environ["GITHUB_APP_INSTALLATION_ID"],
+    )
+
+    task_secrets = modal.Secret.from_dict({
+        "GITHUB_TOKEN": github_token,
+        "GIT_AUTHOR_NAME": user_name,
+        "GIT_AUTHOR_EMAIL": user_email,
+        "GIT_COMMITTER_NAME": user_name,
+        "GIT_COMMITTER_EMAIL": user_email,
+    })
 
     # 1. Load the latest snapshot ------------------------------------------------
     try:
@@ -250,7 +304,7 @@ def create_sandbox():
         idle_timeout=3600,
         cpu=SANDBOX_CPU,
         memory=SANDBOX_MEMORY,
-        secrets=[modal.Secret.from_name("background-agent-secrets")],
+        secrets=[modal.Secret.from_name("background-agent-secrets"), task_secrets],
     )
 
     try:
@@ -258,12 +312,16 @@ def create_sandbox():
         for repo in REPOS:
             pull_and_rebuild(sb, repo)
 
-        # 4. Configure git to authenticate via GitHub CLI (uses GITHUB_TOKEN) ---
-        run_cmd(sb, "gh auth setup-git")
+        # 4. Configure git auth (token-based) and identity -----------------------
         run_cmd(
             sb,
-            'git config --global user.email "agent@lmnr.ai"'
-            ' && git config --global user.name "Laminar Agent"',
+            'git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/"'
+            '.insteadOf "https://github.com/"',
+        )
+        run_cmd(
+            sb,
+            f'git config --global user.name "{user_name}"'
+            f' && git config --global user.email "{user_email}"',
         )
 
         # 5. Start the agent Next.js server --------------------------------------
@@ -296,7 +354,6 @@ def create_sandbox():
         return {
             "sandbox_id": sb.object_id,
             "agent_url": agent_tunnel.url,
-            "lmnr_frontend_url": frontend_tunnel.url,
         }
 
     except Exception as exc:
