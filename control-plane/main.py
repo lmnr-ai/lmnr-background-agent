@@ -103,7 +103,7 @@ REPOS: list[Repo] = [
         url="https://github.com/lmnr-ai/lmnr.git",
         branch="dev",
         build_cmd=(
-            "cd app-server && cargo build --release"
+            "cd app-server && cargo build"
             " && cd ../frontend && pnpm install && pnpm build"
         ),
         env_files=[
