@@ -13,23 +13,24 @@ import { SYSTEM_PROMPT } from "./system-prompt";
 
 const query = Laminar.wrapClaudeAgentQuery(origQuery);
 
-const supabaseStorage = createSdkMcpServer({
-  name: "supabase-storage",
+const screenshots = createSdkMcpServer({
+  name: "screenshots",
   tools: [
     tool(
       "upload_screenshot",
-      "Upload a screenshot image file to Supabase Storage. Returns the public URL of the uploaded image.",
-      { filePath: z.string(), name: z.string() },
-      async ({ filePath, name }) => {
-        const url = process.env.PUBLIC_SUPABASE_URL;
-        const key = process.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
-        if (!url || !key) {
+      "Upload a screenshot image to GitHub. Returns a URL that can be embedded in PR descriptions and markdown.",
+      {
+        filePath: z.string().describe("Absolute path to the image file"),
+        repository: z
+          .string()
+          .describe("GitHub repository in owner/repo format, e.g. lmnr-ai/lmnr"),
+      },
+      async ({ filePath, repository }) => {
+        const token = process.env.GITHUB_TOKEN;
+        if (!token) {
           return {
             content: [
-              {
-                type: "text" as const,
-                text: "Missing PUBLIC_SUPABASE_URL or PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY env vars",
-              },
+              { type: "text" as const, text: "Missing GITHUB_TOKEN env var" },
             ],
             isError: true,
           };
@@ -37,11 +38,11 @@ const supabaseStorage = createSdkMcpServer({
 
         const fileBuffer = await readFile(filePath);
         const resp = await fetch(
-          `${url}/storage/v1/object/screenshots/${name}`,
+          `https://uploads.github.com/repos/${repository}/issues/assets`,
           {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${key}`,
+              Authorization: `Bearer ${token}`,
               "Content-Type": "image/png",
             },
             body: fileBuffer,
@@ -61,9 +62,9 @@ const supabaseStorage = createSdkMcpServer({
           };
         }
 
-        const publicUrl = `${url}/storage/v1/object/public/screenshots/${name}`;
+        const data = (await resp.json()) as { url: string };
         return {
-          content: [{ type: "text" as const, text: publicUrl }],
+          content: [{ type: "text" as const, text: data.url }],
         };
       },
     ),
@@ -83,14 +84,14 @@ const DEFAULT_OPTIONS: Options = {
     "WebSearch",
     "WebFetch",
     "mcp__browser__*",
-    "mcp__supabase-storage__*",
+    "mcp__screenshots__*",
   ],
   mcpServers: {
     browser: {
       command: "npx",
       args: ["@playwright/mcp", "--browser", "chromium", "--no-sandbox"],
     },
-    "supabase-storage": supabaseStorage,
+    screenshots,
   },
   permissionMode: "acceptEdits",
   systemPrompt: {

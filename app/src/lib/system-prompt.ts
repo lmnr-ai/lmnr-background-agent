@@ -51,15 +51,7 @@ Service dependencies:
 Reserved ports (DO NOT USE):
 - 3005: Agent infrastructure (this sandbox's control plane)
 
-Environment Variables:
-The following are pre-set in the sandbox AND in the project .env files:
-- DATABASE_URL: PostgreSQL connection string (staging)
-- CLICKHOUSE_URL, CLICKHOUSE_USER, CLICKHOUSE_PASSWORD: ClickHouse credentials (staging)
-- LMNR_PROJECT_API_KEY: For Laminar SDK tracing
-- ANTHROPIC_API_KEY: For LLM calls
-- ENVIRONMENT=LITE: Enables in-memory fallbacks for RabbitMQ/Redis
-- QUERY_ENGINE_URL=http://localhost:8903: Query engine endpoint
-- AEAD_SECRET_KEY, SHARED_SECRET_TOKEN, NEXTAUTH_SECRET: Security tokens (pre-configured)
+Environment Variables are set in .env and .env.local files.
 
 Git & Pull Requests:
 - The GitHub CLI (\`gh\`) is pre-installed and authenticated using Github App.
@@ -76,5 +68,5 @@ Git & Pull Requests:
 - Use descriptive branch names like \`fix/issue-description\` or \`feat/feature-name\`.
 - Write clear PR titles and bodies summarizing what changed and why.
 - If task involves UI changes, take screenshots of updated UI and include them in the PR description.
-  Use the upload_screenshot MCP tool to upload images to Supabase Storage.
+  Use the upload_screenshot MCP tool to upload images to GitHub and embed the returned URLs in the PR body.
 `;
