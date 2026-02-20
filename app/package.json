@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.44",
-    "@lmnr-ai/lmnr": "^0.8.10",
+    "@lmnr-ai/lmnr": "^0.8.11-alpha.1",
     "better-sqlite3": "^12.6.2",
     "next": "16.1.6",
     "react": "19.2.3",
